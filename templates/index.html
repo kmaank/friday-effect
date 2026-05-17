@@ -133,6 +133,15 @@
     .btn:hover { filter:brightness(1.12); }
     .btn:disabled { opacity:.5; cursor:not-allowed; filter:none; }
 
+    .btn-dl {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .btn-dl:hover { background: var(--toggle-hover); filter: none; }
+
     /* ── Theme toggle ── */
     .btn-theme {
       background:var(--toggle-bg); border:1px solid var(--border);
@@ -340,6 +349,12 @@
       </select>
     </div>
     <button class="btn" id="btn-run">Analyze</button>
+
+    <!-- Download buttons (hidden until first Analyze) -->
+    <div id="dl-group" style="display:none" class="ctrl-group">
+      <a id="btn-csv"  class="btn btn-dl" href="#">⬇ CSV</a>
+      <a id="btn-xlsx" class="btn btn-dl" href="#">⬇ Excel</a>
+    </div>
 
     <div class="controls-right">
       <div class="badge" id="badge-range" style="display:none">
@@ -693,6 +708,15 @@ function updateBadge(d) {
   document.getElementById('badge-days').textContent   = d.n_days.toLocaleString();
   document.getElementById('badge-dates').textContent  = d.date_range;
   document.getElementById('badge-range').style.display = '';
+
+  // Update download button hrefs to match current filters
+  const ticker = encodeURIComponent(document.getElementById('sel-ticker').value);
+  const start  = document.getElementById('sel-start').value;
+  const end    = document.getElementById('sel-end').value;
+  const base   = `/api/download?ticker=${ticker}&start=${start}&end=${end}`;
+  document.getElementById('btn-csv').href  = base + '&fmt=csv';
+  document.getElementById('btn-xlsx').href = base + '&fmt=xlsx';
+  document.getElementById('dl-group').style.display = '';
 }
 
 function updateStatCards(d) {

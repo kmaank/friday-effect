@@ -3,7 +3,8 @@ warnings.filterwarnings("ignore")
 
 from itertools import combinations
 
-from flask import Flask, render_template, jsonify, request
+import io
+from flask import Flask, render_template, jsonify, request, send_file
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -160,6 +161,50 @@ def analysis():
             "non_vals":  non_inc.cumsum().values.tolist(),
         },
     })
+
+
+@app.route("/api/download")
+def download():
+    ticker     = request.args.get("ticker", "^GSPC")
+    start_year = int(request.args.get("start", 2010))
+    end_year   = int(request.args.get("end",   2025))
+    fmt        = request.args.get("fmt", "csv")   # "csv" or "xlsx"
+
+    # Friendly index name for the filename
+    index_name = next((k for k, v in INDEXES.items() if v == ticker), ticker)
+    safe_name  = index_name.replace(" ", "_").replace("/", "-")
+    filename   = f"{safe_name}_{start_year}-{end_year}.{fmt}"
+
+    try:
+        df = build_df(ticker, f"{start_year}-01-01", f"{end_year}-12-31")
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    export = pd.DataFrame({
+        "Date":              df.index.date,
+        "Close":             df["Close"].round(4),
+        "Daily_Return_Pct":  df["Return"].round(6),
+        "Day_of_Week":       df["DayName"],
+        "Year":              df["Year"],
+        "Is_Friday":         (df["DayName"] == "Friday").map({True: "Yes", False: "No"}),
+    })
+
+    buf = io.BytesIO()
+    if fmt == "xlsx":
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            export.to_excel(writer, index=False, sheet_name=f"{safe_name}")
+            ws = writer.sheets[safe_name]
+            for col in ws.columns:
+                ws.column_dimensions[col[0].column_letter].width = 18
+        buf.seek(0)
+        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        buf.write(export.to_csv(index=False).encode())
+        buf.seek(0)
+        mime = "text/csv"
+
+    return send_file(buf, mimetype=mime,
+                     as_attachment=True, download_name=filename)
 
 
 if __name__ == "__main__":
