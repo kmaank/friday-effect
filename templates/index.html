@@ -652,7 +652,7 @@ async function runAnalysis() {
   const ticker = document.getElementById('sel-ticker').value;
   const start  = document.getElementById('sel-start').value;
   const end    = document.getElementById('sel-end').value;
-  if (parseInt(start) >= parseInt(end)) { showError('Start year must be before end year.'); return; }
+  if (parseInt(start) > parseInt(end)) { showError('Start year must not be after end year.'); return; }
   hideError(); showLoading(true);
   try {
     const res  = await fetch(`/api/analysis?ticker=${encodeURIComponent(ticker)}&start=${start}&end=${end}`);
