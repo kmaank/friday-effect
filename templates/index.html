@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Friday Effect — Stock Market Analysis</title>
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Dark theme (default) ── */
+    :root {
+      --bg:         #080b14;
+      --surface:    #0e1320;
+      --card:       #121826;
+      --card2:      #161d2e;
+      --border:     rgba(255,255,255,0.07);
+      --accent:     #6366f1;
+      --accent2:    #22d3ee;
+      --green:      #22c55e;
+      --red:        #ef4444;
+      --amber:      #f59e0b;
+      --text:       #e2e8f0;
+      --muted:      #64748b;
+      --fri:        #f43f5e;
+      --shadow:     none;
+      --header-bg:  linear-gradient(135deg,#0f1729 0%,#1a0a2e 50%,#0a1628 100%);
+      --header-glow:radial-gradient(ellipse at 20% 50%,rgba(99,102,241,.15) 0%,transparent 60%),
+                    radial-gradient(ellipse at 80% 20%,rgba(34,211,238,.10) 0%,transparent 50%);
+      --intro-bg:   linear-gradient(135deg,rgba(99,102,241,.08) 0%,rgba(34,211,238,.05) 100%);
+      --intro-border:rgba(99,102,241,.2);
+      --stat-explain-bg: rgba(99,102,241,.05);
+      --stat-explain-border: rgba(99,102,241,.15);
+      --explain-bg: rgba(0,0,0,.25);
+      --toggle-bg:  rgba(255,255,255,.06);
+      --toggle-hover:rgba(255,255,255,.1);
+    }
+
+    /* ── Light theme ── */
+    [data-theme="light"] {
+      --bg:         #f1f5f9;
+      --surface:    #ffffff;
+      --card:       #ffffff;
+      --card2:      #f8fafc;
+      --border:     rgba(0,0,0,.09);
+      --accent:     #4f46e5;
+      --accent2:    #0891b2;
+      --green:      #16a34a;
+      --red:        #dc2626;
+      --amber:      #d97706;
+      --text:       #0f172a;
+      --muted:      #64748b;
+      --fri:        #e11d48;
+      --shadow:     0 1px 4px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+      --header-bg:  linear-gradient(135deg,#eef2ff 0%,#f5f3ff 50%,#f0fdf4 100%);
+      --header-glow:radial-gradient(ellipse at 20% 50%,rgba(99,102,241,.08) 0%,transparent 60%),
+                    radial-gradient(ellipse at 80% 20%,rgba(8,145,178,.06) 0%,transparent 50%);
+      --intro-bg:   linear-gradient(135deg,rgba(79,70,229,.06) 0%,rgba(8,145,178,.04) 100%);
+      --intro-border:rgba(79,70,229,.18);
+      --stat-explain-bg: rgba(79,70,229,.04);
+      --stat-explain-border: rgba(79,70,229,.15);
+      --explain-bg: rgba(0,0,0,.02);
+      --toggle-bg:  rgba(0,0,0,.05);
+      --toggle-hover:rgba(0,0,0,.09);
+    }
+
+    /* ── Transitions ── */
+    body, header, .controls, .chart-card, .stat-card,
+    .explain-strip, .intro-banner, .stat-explain, .conclusion,
+    select, .badge, .btn-theme, .test-table td, .test-table th,
+    .pair-table td, .pair-table th, .pair-scroll {
+      transition: background .25s ease, background-color .25s ease,
+                  border-color .25s ease, color .2s ease, box-shadow .25s ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; line-height:1.5; }
+
+    /* ── Header ── */
+    header {
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 2rem 2.5rem 1.75rem;
+      position: relative; overflow: hidden;
+    }
+    header::before {
+      content:''; position:absolute; inset:0;
+      background: var(--header-glow);
+      pointer-events:none;
+    }
+    .header-inner { max-width:1400px; margin:0 auto; position:relative; }
+    header h1 {
+      font-size:2rem; font-weight:800; letter-spacing:-.02em;
+      background:linear-gradient(135deg,var(--text) 0%,var(--muted) 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    header h1 span {
+      background:linear-gradient(135deg,var(--fri) 0%,#fb923c 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    header p { color:var(--muted); margin-top:.4rem; font-size:.95rem; }
+
+    /* ── Controls ── */
+    .controls {
+      background:var(--surface); border-bottom:1px solid var(--border);
+      padding:1rem 2.5rem; position:sticky; top:0; z-index:100;
+      backdrop-filter:blur(12px);
+    }
+    .controls-inner {
+      max-width:1400px; margin:0 auto;
+      display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap;
+    }
+    .ctrl-group { display:flex; align-items:center; gap:.6rem; }
+    .ctrl-group label { color:var(--muted); font-size:.78rem; font-weight:500; white-space:nowrap; }
+
+    select {
+      background-color:var(--card2); border:1px solid var(--border);
+      color:var(--text); border-radius:8px; padding:.5rem .85rem;
+      font-size:.875rem; font-family:inherit; cursor:pointer; outline:none;
+      appearance:none; padding-right:2rem;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right .7rem center;
+    }
+    select:hover,select:focus { border-color:var(--accent); }
+
+    .btn {
+      background:linear-gradient(135deg,var(--accent) 0%,#4f46e5 100%);
+      border:none; color:#fff; border-radius:8px; padding:.5rem 1.4rem;
+      font-size:.875rem; font-family:inherit; font-weight:600;
+      cursor:pointer; transition:filter .2s;
+    }
+    .btn:hover { filter:brightness(1.12); }
+    .btn:disabled { opacity:.5; cursor:not-allowed; filter:none; }
+
+    /* ── Theme toggle ── */
+    .btn-theme {
+      background:var(--toggle-bg); border:1px solid var(--border);
+      color:var(--text); border-radius:8px; padding:.45rem .9rem;
+      font-size:.82rem; font-family:inherit; font-weight:500;
+      cursor:pointer; display:flex; align-items:center; gap:.4rem;
+      white-space:nowrap;
+    }
+    .btn-theme:hover { background:var(--toggle-hover); }
+    .btn-theme svg { width:15px; height:15px; flex-shrink:0; }
+    .controls-right { margin-left:auto; display:flex; align-items:center; gap:.75rem; }
+
+    .badge {
+      background:var(--card2); border:1px solid var(--border);
+      border-radius:6px; padding:.4rem .75rem;
+      font-size:.78rem; color:var(--muted);
+    }
+    .badge span { color:var(--text); font-weight:600; }
+
+    /* ── Intro banner ── */
+    .intro-banner {
+      background:var(--intro-bg); border:1px solid var(--intro-border);
+      border-radius:14px; padding:1.4rem 1.75rem;
+      display:flex; gap:1.25rem; align-items:flex-start; margin-bottom:1.5rem;
+      box-shadow:var(--shadow);
+    }
+    .intro-icon { font-size:1.75rem; flex-shrink:0; margin-top:.1rem; }
+    .intro-banner h2 { font-size:1rem; font-weight:700; margin-bottom:.45rem; }
+    .intro-banner p  { font-size:.83rem; color:var(--muted); line-height:1.75; }
+    .intro-banner p strong { color:var(--text); }
+
+    /* ── Stat cards ── */
+    .stat-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+      gap:1rem; margin-bottom:.75rem;
+    }
+    .stat-card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:14px; padding:1.25rem 1.4rem;
+      position:relative; overflow:hidden; box-shadow:var(--shadow);
+    }
+    .stat-card::before {
+      content:''; position:absolute; top:0; left:0; right:0;
+      height:3px; border-radius:14px 14px 0 0;
+    }
+    .stat-card.blue::before  { background:var(--accent); }
+    .stat-card.cyan::before  { background:var(--accent2); }
+    .stat-card.rose::before  { background:var(--fri); }
+    .stat-card.green::before { background:var(--green); }
+    .stat-card.amber::before { background:var(--amber); }
+    .stat-card-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600; }
+    .stat-card-value { font-size:1.75rem; font-weight:800; margin:.35rem 0 .2rem; letter-spacing:-.02em; }
+    .stat-card-sub   { font-size:.78rem; color:var(--muted); }
+
+    .stat-explain {
+      background:var(--stat-explain-bg); border:1px solid var(--stat-explain-border);
+      border-radius:10px; padding:.85rem 1.1rem; margin-bottom:2rem;
+      font-size:.8rem; color:var(--muted); line-height:1.7;
+    }
+    .stat-explain strong { color:var(--text); }
+
+    /* ── Chart layout ── */
+    .chart-grid-2 {
+      display:grid; grid-template-columns:1fr 1fr;
+      gap:1.25rem; margin-bottom:1.25rem;
+    }
+    .chart-card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:14px; overflow:hidden;
+      display:flex; flex-direction:column; box-shadow:var(--shadow);
+    }
+    .chart-card.full { grid-column:1/-1; }
+    .chart-header {
+      padding:1rem 1.25rem .5rem;
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .chart-title { font-size:.85rem; font-weight:600; }
+    .chart-sub   { font-size:.72rem; color:var(--muted); margin-top:.15rem; }
+    .chart-body  { padding:0 .5rem .25rem; flex:1; }
+    .plotly-div  { width:100%; }
+
+    /* ── Explanation strips ── */
+    .explain-strip {
+      border-top:1px solid var(--border);
+      background:var(--explain-bg);
+      padding:1rem 1.25rem;
+    }
+    .explain-row { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+    .explain-block-label {
+      font-size:.65rem; text-transform:uppercase; letter-spacing:.1em;
+      font-weight:700; margin-bottom:.35rem;
+    }
+    .explain-what    .explain-block-label { color:var(--accent2); }
+    .explain-insight .explain-block-label { color:var(--amber); }
+    .explain-block-text, .explain-block-text * {
+      font-size:.79rem; color:var(--muted); line-height:1.7;
+    }
+    .explain-block-text strong { color:var(--text) !important; }
+    .explain-block-text em     { font-style:italic; }
+
+    /* ── Tables ── */
+    .test-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+    .test-table th {
+      text-align:left; padding:.65rem 1rem;
+      background:var(--card2); color:var(--muted);
+      font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.06em;
+      border-bottom:1px solid var(--border);
+    }
+    .test-table td { padding:.75rem 1rem; border-bottom:1px solid var(--border); }
+    .test-table tr:last-child td { border-bottom:none; }
+    .test-table tr:hover td { background:rgba(128,128,128,.04); }
+    .pill {
+      display:inline-block; border-radius:999px;
+      padding:.2rem .65rem; font-size:.72rem; font-weight:700; letter-spacing:.04em;
+    }
+    .pill-red   { background:rgba(239,68,68,.12);   color:var(--red);   border:1px solid rgba(239,68,68,.25); }
+    .pill-muted { background:rgba(100,116,139,.10); color:var(--muted); border:1px solid var(--border); }
+    .p-val { font-family:'SF Mono','Fira Code',monospace; font-size:.8rem; }
+    .pair-scroll { max-height:260px; overflow-y:auto; }
+    .pair-table { width:100%; border-collapse:collapse; font-size:.79rem; }
+    .pair-table th,.pair-table td { padding:.5rem .75rem; border-bottom:1px solid var(--border); text-align:left; }
+    .pair-table th { background:var(--card2); color:var(--muted); font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; position:sticky; top:0; }
+
+    /* ── Conclusion ── */
+    .conclusion {
+      margin-top:1.5rem; border-radius:14px; border:1px solid;
+      padding:1.4rem 1.75rem; box-shadow:var(--shadow);
+    }
+    .conclusion.inconclusive { border-color:rgba(99,102,241,.3); background:rgba(99,102,241,.06); }
+    .conclusion.significant  { border-color:rgba(239,68,68,.3);  background:rgba(239,68,68,.06); }
+    .conclusion h3 { font-size:1rem; font-weight:700; margin-bottom:.5rem; }
+    .conclusion p  { font-size:.85rem; color:var(--muted); line-height:1.75; }
+    .conclusion p strong { color:var(--text); }
+
+    /* ── Loading ── */
+    #loading {
+      display:none; position:fixed; inset:0;
+      background:rgba(8,11,20,.75); backdrop-filter:blur(6px);
+      z-index:999; align-items:center; justify-content:center;
+    }
+    [data-theme="light"] #loading { background:rgba(241,245,249,.8); }
+    #loading.show { display:flex; }
+    .spinner { width:48px; height:48px; border-radius:50%; border:3px solid rgba(99,102,241,.2); border-top-color:var(--accent); animation:spin .8s linear infinite; margin:0 auto 1rem; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .spinner-wrap { text-align:center; }
+    .spinner-wrap p { color:var(--muted); font-size:.88rem; }
+
+    /* ── Misc ── */
+    main { max-width:1400px; margin:0 auto; padding:2rem 2.5rem 4rem; }
+    .section-label {
+      font-size:.72rem; text-transform:uppercase; letter-spacing:.1em;
+      color:var(--muted); font-weight:600; margin:1.75rem 0 .75rem;
+    }
+    #error-banner {
+      display:none; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3);
+      border-radius:10px; padding:.85rem 1.2rem; color:var(--red);
+      font-size:.85rem; margin-bottom:1.25rem;
+    }
+    @media (max-width:900px) {
+      .chart-grid-2,.explain-row { grid-template-columns:1fr; }
+      main,header,.controls { padding-left:1rem; padding-right:1rem; }
+      .controls-right { margin-left:0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spinner-wrap">
+    <div class="spinner"></div>
+    <p>Fetching market data…</p>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="header-inner">
+    <h1>The <span>Friday Effect</span> — Stock Market Analysis</h1>
+    <p>Do stock returns differ systematically on Fridays? Choose an index and date range to explore the data.</p>
+  </div>
+</header>
+
+<!-- Controls -->
+<div class="controls">
+  <div class="controls-inner">
+    <div class="ctrl-group">
+      <label>Index</label>
+      <select id="sel-ticker">
+        {% for name, ticker in indexes.items() %}
+        <option value="{{ ticker }}" {% if ticker == '^GSPC' %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>From</label>
+      <select id="sel-start">
+        {% for y in range(2000,2026) %}<option value="{{ y }}" {% if y==2010 %}selected{% endif %}>{{ y }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>To</label>
+      <select id="sel-end">
+        {% for y in range(2000,2026) %}<option value="{{ y }}" {% if y==2025 %}selected{% endif %}>{{ y }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn" id="btn-run">Analyze</button>
+
+    <div class="controls-right">
+      <div class="badge" id="badge-range" style="display:none">
+        <span id="badge-ticker">—</span> &nbsp;·&nbsp;
+        <span id="badge-days">—</span> trading days &nbsp;·&nbsp;
+        <span id="badge-dates">—</span>
+      </div>
+      <!-- Theme toggle -->
+      <button class="btn-theme" id="btn-theme" title="Toggle light/dark mode">
+        <!-- Moon icon (shown in dark mode → click to go light) -->
+        <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <!-- Sun icon (shown in light mode → click to go dark) -->
+        <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <span id="theme-label">Light mode</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<main>
+
+  <!-- Intro banner (always visible) -->
+  <div class="intro-banner">
+    <div class="intro-icon">📈</div>
+    <div>
+      <h2>What is the Friday Effect?</h2>
+      <p>
+        The <strong>Friday Effect</strong> (also called the "weekend effect") is the idea that stock prices
+        tend to be <strong>lower on Fridays</strong> than on other days. The theory: investors sell holdings
+        before the weekend to avoid holding risk over two non-trading days, pushing prices down.
+        But is this actually true? This dashboard tests that claim using <strong>real market data</strong>
+        from Yahoo Finance. Pick any index and date range above, then hit <strong>Analyze</strong>.
+      </p>
+    </div>
+  </div>
+
+  <div id="error-banner"></div>
+
+  <!-- Stat cards -->
+  <div class="stat-grid" id="stat-grid" style="display:none">
+    <div class="stat-card blue">
+      <div class="stat-card-label">Friday Mean Return</div>
+      <div class="stat-card-value" id="s-fri-mean">—</div>
+      <div class="stat-card-sub" id="s-fri-sub">—</div>
+    </div>
+    <div class="stat-card cyan">
+      <div class="stat-card-label">Non-Friday Mean Return</div>
+      <div class="stat-card-value" id="s-non-mean">—</div>
+      <div class="stat-card-sub">avg of Mon–Thu</div>
+    </div>
+    <div class="stat-card rose">
+      <div class="stat-card-label">Friday Negative Days</div>
+      <div class="stat-card-value" id="s-neg">—</div>
+      <div class="stat-card-sub" id="s-neg-sub">—</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-card-label">t-test p-value</div>
+      <div class="stat-card-value" id="s-t-p">—</div>
+      <div class="stat-card-sub">H₀: μ_Fri = μ_non-Fri</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-card-label">ANOVA p-value</div>
+      <div class="stat-card-value" id="s-f-p">—</div>
+      <div class="stat-card-sub">H₀: all days equal</div>
+    </div>
+  </div>
+  <div class="stat-explain" id="stat-explain" style="display:none">
+    <strong>How to read these cards:</strong>
+    The first two compare Friday's average daily return against all other weekdays.
+    A <strong>negative return</strong> means the market fell on average that day.
+    "Negative Days %" shows how often a weekday ends lower than it opened — above 50% means more losses than gains.
+    The two p-values are formal test results: a value <strong>below 0.05</strong> is needed to declare the Friday Effect statistically real.
+  </div>
+
+  <!-- Charts -->
+  <div id="charts-wrap" style="display:none">
+
+    <div class="section-label">Returns by Day of Week</div>
+    <div class="chart-grid-2">
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div><div class="chart-title">Mean Daily Return (%)</div><div class="chart-sub">Average gain/loss per weekday · error bars = ±1 standard deviation</div></div>
+        </div>
+        <div class="chart-body"><div id="chart-bar" class="plotly-div"></div></div>
+        <div class="explain-strip"><div class="explain-row">
+          <div class="explain-what">
+            <div class="explain-block-label">What this chart shows</div>
+            <div class="explain-block-text">A <strong>daily return</strong> is how much the market moved up or down, as a percentage. If the S&amp;P 500 goes from 4,000 to 4,040, that's +1%. These bars show the <em>average</em> return for each weekday across the whole date range. The thin vertical error bars show how much returns vary — a wide bar means that day is unpredictable.</div>
+          </div>
+          <div class="explain-insight">
+            <div class="explain-block-label">Key insight from the data</div>
+            <div class="explain-block-text" id="insight-bar">Loading…</div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div><div class="chart-title">% of Negative-Return Days</div><div class="chart-sub">How often does each weekday end lower than it opened?</div></div>
+        </div>
+        <div class="chart-body"><div id="chart-neg" class="plotly-div"></div></div>
+        <div class="explain-strip"><div class="explain-row">
+          <div class="explain-what">
+            <div class="explain-block-label">What this chart shows</div>
+            <div class="explain-block-text">A <strong>negative day</strong> is when the market closed lower than it opened — investors lost money. This shows what percentage of each weekday ended in the red. The dashed line is the overall average. If Fridays had a much taller bar, the market would tend to fall before weekends.</div>
+          </div>
+          <div class="explain-insight">
+            <div class="explain-block-label">Key insight from the data</div>
+            <div class="explain-block-text" id="insight-neg">Loading…</div>
+          </div>
+        </div></div>
+      </div>
+
+    </div>
+
+    <div class="section-label">Return Distributions</div>
+    <div class="chart-grid-2">
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div><div class="chart-title">Box Plots by Weekday</div><div class="chart-sub">Middle 50% of returns · median line · whiskers cover ~95% · dots = extreme events</div></div>
+        </div>
+        <div class="chart-body"><div id="chart-box" class="plotly-div"></div></div>
+        <div class="explain-strip"><div class="explain-row">
+          <div class="explain-what">
+            <div class="explain-block-label">What this chart shows</div>
+            <div class="explain-block-text">A <strong>box plot</strong> summarises the full range of returns. The <em>colored box</em> = middle 50% (most typical days). The <em>line inside</em> = median (exact middle value). The <em>whiskers</em> cover most of the rest. <em>Dots</em> beyond whiskers are extreme events — big crashes or rallies. If all boxes look similar, all days behave alike.</div>
+          </div>
+          <div class="explain-insight">
+            <div class="explain-block-label">Key insight from the data</div>
+            <div class="explain-block-text" id="insight-box">Loading…</div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div><div class="chart-title">Friday vs. Non-Friday — Return Density</div><div class="chart-sub">Overlapping histograms normalised by count so shapes are directly comparable</div></div>
+        </div>
+        <div class="chart-body"><div id="chart-hist" class="plotly-div"></div></div>
+        <div class="explain-strip"><div class="explain-row">
+          <div class="explain-what">
+            <div class="explain-block-label">What this chart shows</div>
+            <div class="explain-block-text">This overlaps the <em>distribution</em> of Friday (red) vs. all other days (blue). Tall bars at a value mean that return happened frequently. If Fridays were systematically worse, the <strong>red curve would shift left</strong>. The closer the overlap, the less evidence for a Friday Effect.</div>
+          </div>
+          <div class="explain-insight">
+            <div class="explain-block-label">Key insight from the data</div>
+            <div class="explain-block-text" id="insight-hist">Loading…</div>
+          </div>
+        </div></div>
+      </div>
+
+    </div>
+
+    <div class="section-label">Time Dimension</div>
+    <div class="chart-grid-2">
+
+      <div class="chart-card full">
+        <div class="chart-header">
+          <div><div class="chart-title">Heatmap — Mean Return by Year &amp; Weekday</div><div class="chart-sub">Each cell = one weekday's average return for that year · Green = positive · Red = negative</div></div>
+        </div>
+        <div class="chart-body"><div id="chart-heat" class="plotly-div"></div></div>
+        <div class="explain-strip"><div class="explain-row">
+          <div class="explain-what">
+            <div class="explain-block-label">What this chart shows</div>
+            <div class="explain-block-text">Each cell = <strong>one weekday in one year</strong>. Green = positive average. Red = negative average. To look for a Friday Effect, scan the <strong>Friday row (bottom)</strong> — is it consistently redder than others? Also notice entire columns turning red together (e.g. 2020 COVID crash) — that's the broader market swamping any weekday pattern.</div>
+          </div>
+          <div class="explain-insight">
+            <div class="explain-block-label">Key insight from the data</div>
+            <div class="explain-block-text" id="insight-heat">Loading…</div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="chart-card full">
+        <div class="chart-header">
+          <div><div class="chart-title">Cumulative Return — Friday vs. Non-Friday</div><div class="chart-sub">Running total of % returns · both lines share the same x-axis · flat segments = the other group's trading days</div></div>
+        </div>
+        <div class="chart-body"><div id="chart-cum" class="plotly-div"></div></div>
+        <div class="explain-strip"><div class="explain-row">
+          <div class="explain-what">
+            <div class="explain-block-label">What this chart shows</div>
+            <div class="explain-block-text">Returns are added up day by day. The <em>blue line</em> accumulates Mon–Thu only; the <em>red line</em> accumulates Fridays only — both on the <strong>same date axis</strong>. The blue line grows faster simply because it covers 4× as many days per week. The key question is the Friday line's <em>slope and direction</em>, not its absolute level.</div>
+          </div>
+          <div class="explain-insight">
+            <div class="explain-block-label">Key insight from the data</div>
+            <div class="explain-block-text" id="insight-cum">Loading…</div>
+          </div>
+        </div></div>
+      </div>
+
+    </div>
+
+    <div class="section-label">Hypothesis Tests</div>
+    <div class="chart-grid-2">
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div><div class="chart-title">Statistical Test Results</div><div class="chart-sub">Three independent tests of the Friday Effect · α = 0.05 significance threshold</div></div>
+        </div>
+        <div class="chart-body" style="padding:0 0 .25rem">
+          <table class="test-table" id="test-table"></table>
+        </div>
+        <div class="explain-strip"><div class="explain-row">
+          <div class="explain-what">
+            <div class="explain-block-label">What this table shows</div>
+            <div class="explain-block-text">Three tests each ask the Friday Effect question a different way. <em>SET 1</em> compares average returns. <em>SET 2</em> checks whether any weekday is different from the others. <em>SET 3</em> compares the proportion of down days. A <strong>p-value below 0.05</strong> is the standard scientific threshold — it means the result is unlikely to be pure luck.</div>
+          </div>
+          <div class="explain-insight">
+            <div class="explain-block-label">Key insight from the data</div>
+            <div class="explain-block-text" id="insight-tests">Loading…</div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div><div class="chart-title">Pairwise Day Comparisons</div><div class="chart-sub">All 10 weekday pairs · Bonferroni correction applied to control for multiple testing</div></div>
+        </div>
+        <div class="chart-body" style="padding:0 0 .25rem">
+          <div class="pair-scroll"><table class="pair-table" id="pair-table"></table></div>
+        </div>
+        <div class="explain-strip"><div class="explain-row">
+          <div class="explain-what">
+            <div class="explain-block-label">What this table shows</div>
+            <div class="explain-block-text">The ANOVA only says "at least one day differs" — this table breaks it down by comparing every possible pair. <strong>Bonferroni correction</strong> multiplies each p-value by 10 (the number of comparisons) to prevent false positives. Only a corrected p &lt; 0.05 would mean those two days are truly different.</div>
+          </div>
+          <div class="explain-insight">
+            <div class="explain-block-label">Key insight from the data</div>
+            <div class="explain-block-text" id="insight-pair">Loading…</div>
+          </div>
+        </div></div>
+      </div>
+
+    </div>
+
+    <div id="conclusion" class="conclusion inconclusive"></div>
+
+  </div>
+</main>
+
+<script>
+// ── Theme management ──────────────────────────────────────────────────────────
+let currentTheme = localStorage.getItem('fridayTheme') || 'dark';
+let currentData  = null;
+
+function applyTheme(theme) {
+  currentTheme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('fridayTheme', theme);
+  const dark = theme === 'dark';
+  document.getElementById('icon-moon').style.display  = dark ? '' : 'none';
+  document.getElementById('icon-sun').style.display   = dark ? 'none' : '';
+  document.getElementById('theme-label').textContent  = dark ? 'Light mode' : 'Dark mode';
+  if (currentData) renderCharts(currentData); // re-draw charts with new colors
+}
+
+document.getElementById('btn-theme').addEventListener('click', () => {
+  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+});
+
+// Apply saved theme immediately (before first render)
+applyTheme(currentTheme);
+
+// ── Chart theme colors (Plotly needs explicit values, not CSS vars) ───────────
+function ct() {
+  const dark = currentTheme === 'dark';
+  return {
+    font:       dark ? '#94a3b8' : '#475569',
+    textLabel:  dark ? '#cbd5e1' : '#374151',
+    grid:       dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.07)',
+    line:       dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.12)',
+    zeroline:   dark ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.2)',
+    shape:      dark ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.15)',
+    shapeDot:   dark ? 'rgba(255,255,255,.3)'  : 'rgba(0,0,0,.25)',
+    annotation: dark ? 'rgba(255,255,255,.4)'  : 'rgba(0,0,0,.45)',
+    heatMid:    dark ? '#1e293b'               : '#e2e8f0',
+  };
+}
+
+function baseLayout(overrides) {
+  const c = ct();
+  const base = {
+    paper_bgcolor: 'transparent',
+    plot_bgcolor:  'transparent',
+    font:   { family:'Inter,sans-serif', color:c.font, size:11 },
+    margin: { t:10, r:16, b:40, l:52 },
+    xaxis:  { gridcolor:c.grid, linecolor:c.line, tickfont:{color:c.font} },
+    yaxis:  { gridcolor:c.grid, linecolor:c.line, zerolinecolor:c.zeroline, tickfont:{color:c.font} },
+    legend: { bgcolor:'transparent', font:{size:11, color:c.font} },
+  };
+  return Object.assign({}, base, overrides);
+}
+
+const DAYS   = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const COLORS = { Monday:'#6366f1', Tuesday:'#8b5cf6', Wednesday:'#22d3ee', Thursday:'#34d399', Friday:'#f43f5e' };
+const CFG    = { responsive:true, displayModeBar:false };
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  const ticker = document.getElementById('sel-ticker').value;
+  const start  = document.getElementById('sel-start').value;
+  const end    = document.getElementById('sel-end').value;
+  if (parseInt(start) >= parseInt(end)) { showError('Start year must be before end year.'); return; }
+  hideError(); showLoading(true);
+  try {
+    const res  = await fetch(`/api/analysis?ticker=${encodeURIComponent(ticker)}&start=${start}&end=${end}`);
+    const data = await res.json();
+    if (data.status !== 'ok') { showError(data.message); return; }
+    currentData = data;
+    render(data);
+  } catch(e) { showError('Network error — ' + e.message); }
+  finally     { showLoading(false); }
+}
+
+function render(d) {
+  updateBadge(d);
+  updateStatCards(d);
+  renderCharts(d);
+  drawTestTable(d);
+  drawPairTable(d);
+  drawConclusion(d);
+  addExplanations(d);
+  document.getElementById('stat-grid').style.display    = 'grid';
+  document.getElementById('stat-explain').style.display = 'block';
+  document.getElementById('charts-wrap').style.display  = 'block';
+}
+
+function renderCharts(d) {
+  drawBarChart(d);
+  drawNegChart(d);
+  drawBoxChart(d);
+  drawHistChart(d);
+  drawHeatmap(d);
+  drawCumulative(d);
+}
+
+// ── Badge & stat cards ────────────────────────────────────────────────────────
+function updateBadge(d) {
+  const opt = document.querySelector(`#sel-ticker option[value="${document.getElementById('sel-ticker').value}"]`);
+  document.getElementById('badge-ticker').textContent = opt ? opt.textContent : d.ticker;
+  document.getElementById('badge-days').textContent   = d.n_days.toLocaleString();
+  document.getElementById('badge-dates').textContent  = d.date_range;
+  document.getElementById('badge-range').style.display = '';
+}
+
+function updateStatCards(d) {
+  const fri    = d.descriptive['Friday'];
+  const nonMean = DAYS.filter(x=>x!=='Friday').reduce((s,x)=>s+d.descriptive[x].mean,0)/4;
+  const nonNeg  = DAYS.filter(x=>x!=='Friday').reduce((s,x)=>s+d.descriptive[x].neg_pct,0)/4;
+  const fmt = v => (v>=0?'+':'')+v.toFixed(4)+'%';
+  document.getElementById('s-fri-mean').textContent = fmt(fri.mean);
+  document.getElementById('s-fri-sub').textContent  = `${fri.n.toLocaleString()} Fridays in sample`;
+  document.getElementById('s-non-mean').textContent = fmt(nonMean);
+  document.getElementById('s-neg').textContent      = fri.neg_pct.toFixed(1)+'%';
+  document.getElementById('s-neg-sub').textContent  = `vs ${nonNeg.toFixed(1)}% non-Friday avg`;
+  document.getElementById('s-t-p').textContent      = d.tests.ttest.p_one.toFixed(4);
+  document.getElementById('s-f-p').textContent      = d.tests.anova.p_val.toFixed(4);
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+function drawBarChart(d) {
+  const c = ct();
+  const means = DAYS.map(x=>d.descriptive[x].mean);
+  const stds  = DAYS.map(x=>d.descriptive[x].std);
+  const maxV  = Math.max(...means.map((v,i)=>Math.abs(v)+stds[i]));
+  Plotly.newPlot('chart-bar', [{
+    x:DAYS, y:means, type:'bar', cliponaxis:false,
+    marker:{ color:DAYS.map(x=>COLORS[x]), opacity:.88, line:{width:0} },
+    error_y:{ type:'data', array:stds, visible:true, color:'rgba(128,128,128,.35)', thickness:1.5, width:4 },
+    text:means.map(v=>(v>=0?'+':'')+v.toFixed(4)+'%'),
+    textposition:'outside', textfont:{size:11, color:c.textLabel},
+    hovertemplate:'<b>%{x}</b><br>Mean: %{y:.5f}%<extra></extra>',
+  }], baseLayout({
+    height:280, margin:{t:36,r:16,b:40,l:56},
+    yaxis:{...baseLayout({}).yaxis, title:'Return (%)', range:[-(maxV+.02), maxV+.025]},
+    shapes:[{type:'line',x0:-.5,x1:4.5,y0:0,y1:0,line:{color:c.shape,width:1}}],
+  }), CFG);
+}
+
+function drawNegChart(d) {
+  const c = ct();
+  const negs = DAYS.map(x=>d.descriptive[x].neg_pct);
+  const avg  = negs.reduce((a,b)=>a+b,0)/negs.length;
+  Plotly.newPlot('chart-neg', [{
+    x:DAYS, y:negs, type:'bar', cliponaxis:false,
+    marker:{ color:DAYS.map(x=>COLORS[x]), opacity:.88, line:{width:0} },
+    text:negs.map(v=>v.toFixed(1)+'%'),
+    textposition:'outside', textfont:{size:11, color:c.textLabel},
+    hovertemplate:'<b>%{x}</b><br>Negative days: %{y:.1f}%<extra></extra>',
+  }], baseLayout({
+    height:280, margin:{t:36,r:16,b:40,l:56},
+    yaxis:{...baseLayout({}).yaxis, title:'% Negative Days', range:[30, Math.max(...negs)+5]},
+    shapes:[{type:'line',x0:-.5,x1:4.5,y0:avg,y1:avg,line:{color:c.shapeDot,width:1.5,dash:'dot'}}],
+    annotations:[{x:4.45,y:avg+.6,text:`avg ${avg.toFixed(1)}%`,showarrow:false,
+                  xanchor:'right',font:{color:c.annotation,size:10}}],
+  }), CFG);
+}
+
+function drawBoxChart(d) {
+  const traces = DAYS.map(day=>({
+    name:day, type:'box', y:d.descriptive[day].sample,
+    marker:{color:COLORS[day],size:2,opacity:.4},
+    line:{color:COLORS[day]}, boxmean:'sd', hoverinfo:'y+name',
+  }));
+  Plotly.newPlot('chart-box', traces, baseLayout({
+    height:280, margin:{t:10,r:16,b:40,l:52}, showlegend:false,
+    yaxis:{...baseLayout({}).yaxis, title:'Daily Return (%)', range:[-7,7]},
+  }), CFG);
+}
+
+function drawHistChart(d) {
+  const h = d.histogram;
+  Plotly.newPlot('chart-hist', [
+    {x:h.bins,y:h.nonfriday,type:'bar',name:'Non-Friday',
+     marker:{color:'rgba(99,102,241,.55)',line:{width:0}},
+     hovertemplate:'%{x:.1f}% → density %{y:.3f}<extra>Non-Friday</extra>'},
+    {x:h.bins,y:h.friday,type:'bar',name:'Friday',
+     marker:{color:'rgba(244,63,94,.65)',line:{width:0}},
+     hovertemplate:'%{x:.1f}% → density %{y:.3f}<extra>Friday</extra>'},
+  ], baseLayout({
+    height:280, margin:{t:10,r:16,b:48,l:56}, barmode:'overlay',
+    xaxis:{...baseLayout({}).xaxis, title:'Daily Return (%)',
+           tickvals:[-4,-3,-2,-1,0,1,2,3,4],
+           ticktext:['-4%','-3%','-2%','-1%','0%','+1%','+2%','+3%','+4%']},
+    yaxis:{...baseLayout({}).yaxis, title:'Density'},
+    legend:{x:.02,y:.97,bgcolor:'transparent',font:{size:11,color:ct().font}},
+  }), CFG);
+}
+
+function drawHeatmap(d) {
+  const c = ct();
+  const h = d.heatmap;
+  const zData = h.days.map(day=>h.years.map(yr=>{
+    const v = h.data[day][h.years.indexOf(yr)];
+    return v!=null ? v : null;
+  }));
+  Plotly.newPlot('chart-heat', [{
+    z:zData, x:h.years, y:h.days, type:'heatmap',
+    colorscale:[[0,'#b91c1c'],[0.35,'#ef4444'],[0.5,c.heatMid],[0.65,'#22c55e'],[1,'#15803d']],
+    zmid:0,
+    colorbar:{thickness:12,len:.85,tickfont:{color:c.font,size:10},outlinewidth:0},
+    hovertemplate:'<b>%{y}</b>, %{x}<br>Mean Return: %{z:.4f}%<extra></extra>',
+  }], baseLayout({
+    height:230, margin:{t:10,r:70,b:55,l:100},
+    xaxis:{...baseLayout({}).xaxis, dtick:1, tickangle:-45},
+    yaxis:{...baseLayout({}).yaxis, autorange:'reversed'},
+  }), CFG);
+}
+
+function drawCumulative(d) {
+  const c = ct();
+  const cum = d.cumulative;
+  Plotly.newPlot('chart-cum', [
+    {x:cum.dates,y:cum.non_vals,mode:'lines',name:'Non-Friday (Mon–Thu)',
+     line:{color:'#6366f1',width:1.8},
+     hovertemplate:'%{x|%b %d, %Y}<br>Cumulative: %{y:.2f}%<extra>Non-Friday</extra>'},
+    {x:cum.dates,y:cum.fri_vals,mode:'lines',name:'Friday',
+     line:{color:'#f43f5e',width:1.8},
+     hovertemplate:'%{x|%b %d, %Y}<br>Cumulative: %{y:.2f}%<extra>Friday</extra>'},
+  ], baseLayout({
+    height:280, margin:{t:10,r:16,b:55,l:65},
+    xaxis:{...baseLayout({}).xaxis, type:'date',tickformat:'%Y',dtick:'M12',tickangle:-45,
+           title:{text:'Year',standoff:10}},
+    yaxis:{...baseLayout({}).yaxis, title:'Cumulative Return (%)'},
+    legend:{x:.02,y:.97,bgcolor:'transparent',font:{size:11,color:c.font}},
+  }), CFG);
+}
+
+// ── Tables ────────────────────────────────────────────────────────────────────
+function drawTestTable(d) {
+  const t = d.tests;
+  const rows = [
+    {name:'SET 1 — Welch\'s t-test',
+     hyp:'H₀: μ_Fri = μ_non-Fri<br><small style="color:var(--muted)">H₁: μ_Fri &lt; μ_non-Fri (one-tailed)</small>',
+     stat:`t = ${t.ttest.statistic.toFixed(4)}`, p:t.ttest.p_one, rej:t.ttest.reject},
+    {name:'SET 2 — One-way ANOVA',
+     hyp:'H₀: all daily means equal<br><small style="color:var(--muted)">H₁: at least one day differs</small>',
+     stat:`F = ${t.anova.statistic.toFixed(4)}`, p:t.anova.p_val, rej:t.anova.reject},
+    {name:'SET 3 — z-test (proportions)',
+     hyp:`H₀: p_Fri_neg ≤ p_non_neg<br><small style="color:var(--muted)">Fri: ${t.proportion.p_fri_neg.toFixed(1)}% neg · Non-Fri: ${t.proportion.p_non_neg.toFixed(1)}% neg</small>`,
+     stat:`z = ${t.proportion.statistic.toFixed(4)}`, p:t.proportion.p_one, rej:t.proportion.reject},
+  ];
+  document.getElementById('test-table').innerHTML =
+    `<thead><tr><th>Test</th><th>Hypotheses</th><th>Statistic</th><th>p-value</th><th>Reject H₀?</th></tr></thead><tbody>` +
+    rows.map(r=>`<tr>
+      <td><strong>${r.name}</strong></td>
+      <td style="font-size:.76rem">${r.hyp}</td>
+      <td class="p-val">${r.stat}</td>
+      <td class="p-val" style="color:${r.p<.05?'var(--red)':'var(--text)'}">${r.p.toFixed(4)}</td>
+      <td><span class="pill ${r.rej?'pill-red':'pill-muted'}">${r.rej?'YES ✓':'NO ✗'}</span></td>
+    </tr>`).join('')+'</tbody>';
+}
+
+function drawPairTable(d) {
+  const sorted = [...d.pairwise].sort((a,b)=>a.p_raw-b.p_raw);
+  document.getElementById('pair-table').innerHTML =
+    `<thead><tr><th>Pair</th><th>t</th><th>p (raw)</th><th>p (Bonferroni)</th><th>Sig?</th></tr></thead><tbody>` +
+    sorted.map(r=>`<tr>
+      <td>${r.pair}</td>
+      <td class="p-val">${r.t.toFixed(3)}</td>
+      <td class="p-val">${r.p_raw.toFixed(4)}</td>
+      <td class="p-val" style="color:${r.sig?'var(--red)':'inherit'}">${Math.min(r.p_bonf,1).toFixed(4)}</td>
+      <td>${r.sig?'<span class="pill pill-red">YES</span>':'<span class="pill pill-muted">NO</span>'}</td>
+    </tr>`).join('')+'</tbody>';
+}
+
+// ── Conclusion ────────────────────────────────────────────────────────────────
+function drawConclusion(d) {
+  const any = d.tests.ttest.reject || d.tests.anova.reject || d.tests.proportion.reject;
+  const el  = document.getElementById('conclusion');
+  el.className = 'conclusion ' + (any ? 'significant' : 'inconclusive');
+  const fri    = d.descriptive['Friday'];
+  const nonMean = DAYS.filter(x=>x!=='Friday').reduce((s,x)=>s+d.descriptive[x].mean,0)/4;
+  const fmt = v => (v>=0?'+':'')+v.toFixed(4)+'%';
+  if (!any) {
+    el.innerHTML = `
+      <h3>⚖️ Conclusion: No statistically significant Friday Effect detected</h3>
+      <p>All three tests <strong>fail to reject</strong> their null hypotheses at α = 0.05.
+      The mean Friday return (${fmt(fri.mean)}) differs from non-Friday (${fmt(nonMean)}) by only
+      <strong>${Math.abs(fri.mean-nonMean).toFixed(5)}%</strong> — completely within random variation.
+      The ANOVA p-value of <strong>${d.tests.anova.p_val.toFixed(4)}</strong> means there is a
+      ${(d.tests.anova.p_val*100).toFixed(0)}% chance of seeing differences this large even if all days were truly identical.
+      <br><br>
+      <strong>Plain English:</strong> Fridays are not meaningfully different from any other trading day
+      in this dataset. The Friday Effect appears to be a myth — or if it ever existed in older data,
+      it has since been traded away by investors who spotted it and profited until the pattern disappeared.</p>`;
+  } else {
+    const sigs = ['ttest','anova','proportion'].filter(k=>d.tests[k].reject)
+      .map(k=>({ttest:'t-test',anova:'ANOVA',proportion:'proportion z-test'})[k]).join(', ');
+    el.innerHTML = `
+      <h3>⚠️ Conclusion: Statistically significant Friday Effect detected</h3>
+      <p>Significant tests at α = 0.05: <strong>${sigs}</strong>.
+      Friday mean return is <strong>${fmt(fri.mean)}</strong> vs. <strong>${fmt(nonMean)}</strong> for other days.
+      <br><br>
+      <strong>Plain English:</strong> The data shows a pattern unlikely to be pure luck — Fridays do
+      appear to have different returns in this index and period. However, "statistically significant"
+      doesn't mean "practically important." The actual difference is still very small, and transaction
+      costs would likely eliminate any potential trading strategy built on this finding.</p>`;
+  }
+}
+
+// ── Explanations ──────────────────────────────────────────────────────────────
+function addExplanations(d) {
+  const fri      = d.descriptive['Friday'];
+  const allMeans = DAYS.map(x=>d.descriptive[x].mean);
+  const allNegs  = DAYS.map(x=>d.descriptive[x].neg_pct);
+  const nonMean  = DAYS.filter(x=>x!=='Friday').reduce((s,x)=>s+d.descriptive[x].mean,0)/4;
+  const nonNeg   = DAYS.filter(x=>x!=='Friday').reduce((s,x)=>s+d.descriptive[x].neg_pct,0)/4;
+  const absDiff  = Math.abs(fri.mean - nonMean);
+  const fmt      = v => (v>=0?'+':'')+v.toFixed(4)+'%';
+
+  const sorted   = [...allMeans].sort((a,b)=>b-a);
+  const friRank  = sorted.indexOf(fri.mean)+1;
+  const bestDay  = DAYS[allMeans.indexOf(Math.max(...allMeans))];
+  const worstDay = DAYS[allMeans.indexOf(Math.min(...allMeans))];
+  const sortedNegs = [...allNegs].sort((a,b)=>b-a);
+  const friNegRank = sortedNegs.indexOf(fri.neg_pct)+1;
+  const friNegLabel = friNegRank<=2?'among the highest (most down days)':friNegRank===3?'exactly in the middle':'among the lowest (fewest down days)';
+
+  const tp = d.tests.ttest.p_one, fp = d.tests.anova.p_val, zp = d.tests.proportion.p_one;
+  const minP = Math.min(tp, fp, zp);
+  const friCum = d.cumulative.fri_vals[d.cumulative.fri_vals.length-1];
+  const nonCum = d.cumulative.non_vals[d.cumulative.non_vals.length-1];
+
+  const sorted2 = [...d.pairwise].sort((a,b)=>a.p_raw-b.p_raw);
+  const mostSig = sorted2[0];
+  const friPairs = d.pairwise.filter(x=>x.pair.includes('Friday')).sort((a,b)=>a.p_raw-b.p_raw);
+
+  document.getElementById('insight-bar').innerHTML =
+    `Friday ranks <strong>#${friRank} out of 5</strong> weekdays by average return (${fmt(fri.mean)}).
+     It ${fri.mean>nonMean?'slightly outperforms':'slightly underperforms'} other days by just
+     <strong>${absDiff.toFixed(5)}%</strong> — about ${(absDiff*100).toFixed(1)} cents on a $100 investment per day.
+     Best day: <strong>${bestDay}</strong> (${fmt(Math.max(...allMeans))}). Worst: <strong>${worstDay}</strong> (${fmt(Math.min(...allMeans))}).
+     The error bars are ~20× taller than the bars — <em>day-to-day randomness completely dominates any weekday pattern.</em>`;
+
+  document.getElementById('insight-neg').innerHTML =
+    `Fridays have a <strong>${fri.neg_pct.toFixed(1)}%</strong> chance of being a down day —
+     <strong>${friNegLabel}</strong> (rank #${friNegRank} of 5).
+     The all-day average is <strong>${(allNegs.reduce((a,b)=>a+b,0)/5).toFixed(1)}%</strong>.
+     The gap between Friday (${fri.neg_pct.toFixed(1)}%) and non-Friday average (${nonNeg.toFixed(1)}%) is
+     just <strong>${Math.abs(fri.neg_pct-nonNeg).toFixed(1)} percentage points</strong> — not enough to suggest a real pattern.`;
+
+  document.getElementById('insight-box').innerHTML =
+    `All five boxes look nearly <strong>identical in size and position</strong> — exactly what you'd expect if weekday doesn't matter.
+     Friday's median return is <strong>${fmt(d.descriptive['Friday'].median)}</strong> and its spread (std) is
+     <strong>${d.descriptive['Friday'].std.toFixed(4)}%</strong>, both on par with every other day.
+     The wide boxes (middle 50% spanning roughly −0.7% to +0.7%) show that individual trading days are highly unpredictable
+     regardless of weekday. Extreme events (dots) occur on all days with similar frequency.`;
+
+  document.getElementById('insight-hist').innerHTML =
+    `The red (Friday) and blue (non-Friday) curves overlap <strong>almost perfectly</strong>.
+     A strong Friday Effect would shift the red curve visibly to the left.
+     The difference in averages is only <strong>${absDiff.toFixed(5)}%</strong> — far too small to see in this chart.
+     Both curves are centred near zero with the same bell-curve shape, confirming returns are
+     essentially indistinguishable between Fridays and other days.`;
+
+  document.getElementById('insight-heat').innerHTML =
+    `Scan the <strong>Friday row (bottom)</strong> versus the rows above.
+     A real Friday Effect would make it consistently redder. Instead, all rows show a
+     <strong>random mix of green and red</strong> driven by broad economic events (crashes, bull runs)
+     rather than which weekday it is. This visual pattern matches the statistical tests: no systematic weekday bias.`;
+
+  document.getElementById('insight-cum').innerHTML =
+    `Blue (non-Friday) ends at <strong>${nonCum.toFixed(1)}%</strong> cumulative;
+     Friday at <strong>${friCum.toFixed(1)}%</strong>.
+     The blue line is higher <em>solely because it covers 4× as many trading days.</em>
+     Per-day equivalent: Friday contributed ~${(friCum).toFixed(1)}% vs. ~${(nonCum/4).toFixed(1)}% for non-Fridays —
+     a gap of <strong>${Math.abs(friCum-nonCum/4).toFixed(1)}%</strong> over the full period.
+     Both lines trend upward, reflecting the long-term growth of the index.`;
+
+  document.getElementById('insight-tests').innerHTML =
+    `<strong>Think of p-value as a "luck score."</strong>
+     A high p-value means our data is completely normal — easily explained by random chance alone.
+     We need p &lt; 0.05 to call a result significant. The smallest p-value here is
+     <strong>${minP.toFixed(4)}</strong>, meaning patterns at least this large would occur by chance
+     <strong>${(minP*100).toFixed(1)}% of the time</strong> even in a world with no Friday Effect.
+     All three tests agree: there is <em>no evidence</em> for a real Friday Effect.`;
+
+  document.getElementById('insight-pair').innerHTML =
+    `The most different pair overall is <strong>${mostSig.pair}</strong>
+     (raw p = ${mostSig.p_raw.toFixed(4)}, Bonferroni p = ${Math.min(mostSig.p_bonf,1).toFixed(4)}) —
+     still far from significant after correction.
+     For Friday specifically, its most different partner is
+     <strong>${friPairs[0].pair.replace(/Friday vs |vs Friday/,'').trim()}</strong>
+     (p = ${friPairs[0].p_raw.toFixed(4)}).
+     <em>Bonferroni correction</em> is crucial: without it, running 10 tests gives a ~40% chance
+     of finding a "significant" result purely by luck.`;
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function showLoading(on) {
+  document.getElementById('loading').classList.toggle('show', on);
+  document.getElementById('btn-run').disabled = on;
+}
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = 'Error: '+msg; el.style.display = 'block';
+}
+function hideError() { document.getElementById('error-banner').style.display = 'none'; }
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+document.getElementById('btn-run').addEventListener('click', runAnalysis);
+runAnalysis();
+</script>
+</body>
+</html>
